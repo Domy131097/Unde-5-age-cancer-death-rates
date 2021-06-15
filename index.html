@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Data visualization</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="/favicon.png" rel="icon" type="image/x-icon" />
+
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="https://d3js.org/d3-geo.v1.min.js"></script>
+    <script src="http://d3js.org/topojson.v1.min.js"></script>
+    <script src="https://d3js.org/d3-ease.v1.min.js"></script>
+    <script src="d3.legend.js"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <!-- Reveal Animations When Scrolling -->
+    <link rel="stylesheet" href="css/animate.min.css">
+    <script src="js/wow.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="row align-items-center justify-content-center heading">
+            <div class="wow animated zoomInDown heading-text">    
+                <br>
+                <h2>UNDER 5 AGE - CANCER DEATH RATES</h2></h2>
+                <hr class="full">
+            </div>
+        </div>
+        <div class="row align-items-center justify-content-center heading">
+            <div class="wow animated zoomInDown heading-text">   
+                <h4>FROM 2000 TO 2017</h4>
+                <br>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="col-md-12 wow animated fadeInUp">
+            <select class="form-control" id="selectCountry">
+                <option selected>Select country...</option>
+            </select>
+            <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="customRadioInline1" name="selectMapData" class="custom-control-input" value="death_rates" checked>
+                <label class="custom-control-label" for="customRadioInline1">Under 5 age - average cancer death rate</label>
+            </div>
+            <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="customRadioInline2" name="selectMapData" class="custom-control-input" value="population">
+                <label class="custom-control-label" for="customRadioInline2">Population</label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-6 wow animated fadeInUp" id="mapContainer"></div>
+            <div class="col-lg-6 wow animated fadeInUp" id="lineGraph"></div>
+        </div>
+        <div class="row justify-content-end align-items-right" id="test">
+            <div class="col-lg-6 wow animated fadeInUp" id="barChart"></div>
+        </div>
+    </div>
+
+    <script>
+
+        const width = innerWidth;
+        const height = innerHeight;
+        let lineChart;
+
+        const defaultColor = "#ffffff";
+        var legendColors = ["#ffffff", "#808080", "#484848", "#202020"];
+        var legendValues = ["Unidentified", "[0, 100]", "[100, 200]", "[200, 300]"];
+
+        // =============== SVG AND PROJECTION ===============
+        const svg = d3.select("#mapContainer").append("svg")
+            .attr("id", "mapSvg")
+            .attr("width", width)
+            .attr("height", height - 100);
+
+        const projection = d3.geoNaturalEarth1()
+            .scale(200)
+            .translate([width / 4.9, height / 2.35]);
+
+        const path = d3.geo.path().projection(projection);
+
+        // =============== MAP GROUP ===============
+        const mapGroup = svg.append('g');
+
+        mapGroup.append('path')
+            .attr('class', 'sphere')
+            .attr('d', path({ type: "Sphere" }));
+        // =============== MAP ZOOM ===============
+        const zoomLevelLimit = [1, 5];
+        const zoom = d3.behavior.zoom().scaleExtent(zoomLevelLimit)
+
+        svg.call(zoom.on('zoom', () => {
+            mapGroup.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+        }));
+
+        const mapLegend = svg.append('g');
+
+        // https://github.com/johan/world.geo.json
+        d3.json("countries.json", function(error, countries) {
+
+            d3.csv("deathsData.csv", function (error, csv) {
+                const world = countries.features;
+                const countryByCode = {};
+                const countryByName = [];
+
+                csv.forEach(function (d, i) {
+                    world.forEach(function (e, j) {
+                        if (d.code != "") {
+                            if (d.code === e.id) {
+                                countryByCode[e.id] = d;
+                                e.properties.name = d.name
+                            }
+                        }
+                    })
+                })
+
+                world.forEach(item => {
+                    countryByName.push(item.properties.name);
+                });
+
+                countryByName.sort();
+                initCountrySelectMenu(world, countryByName, countryByCode);
+                initMapLegend();
+                initMapView(world, countryByCode);
+                
+                d3.selectAll(("input[name='selectMapData']")).on("change", function(){ 
+                    if (this.value == "death_rates") {
+                        legendValues = ["Unidentified", "[0, 100]", "[100, 200]", "[200, 300]"];
+                        legend.remove();
+                        mapGroup.selectAll('path').remove();
+                        mapGroup.append('path')
+                            .attr('class', 'sphere')
+                            .attr('d', path({ type: "Sphere" }));
+                        if (mapLegend != null) {
+                            mapLegend.selectAll('text').remove(); 
+                        }
+                        initMapView(world, countryByCode);
+                        initMapLegend();
+                    } else if (this.value == "population") {
+                        legendValues = ["Unidentified", "[0, 10 000 000]", "[100 000 000, 500 000 000]", "[500 000 000, 1 000 000 000]"];
+                        legend.remove();
+                        mapGroup.selectAll('path').remove();
+                        mapGroup.append('path')
+                            .attr('class', 'sphere')
+                            .attr('d', path({ type: "Sphere" }));
+                        if (mapLegend != null) {
+                            mapLegend.selectAll('text').remove(); 
+                        }
+                        initMapView(world, countryByCode);
+                        initMapLegend();
+                        
+                    }
+                }); 
+            });
+        });
+
+        // Function for print to log
+        function reporter(x) {
+            console.log(x)
+            d3.select("#report").text(function () {
+                return x.name;
+            });
+        }
+
+        function initMapView(world, countryByCode) {
+            mapGroup.selectAll('path')
+                    .data(world)
+                    .enter()
+                    .append('path')
+                    .attr('class', 'country')
+                    .attr('d', path)
+                    .attr('fill',function(d) { 
+                        if (countryByCode[d.id] != null) {
+                            const selectedMapData = d3.select('input[name="selectMapData"]:checked').node().value;
+                            if (selectedMapData == "death_rates") {
+                                const average = countryByCode[d.id].average
+                                if (average >= 0 && average <= 100) {
+                                    return legendColors[1]
+                                } else if (average >=  100 && average <= 200) {
+                                    return legendColors[2]
+                                } else if (average >=  200 && average <= 300) {
+                                    return legendColors[3]
+                                } 
+                            } else if (selectedMapData == "population") {
+                                const population = countryByCode[d.id].population
+                                if (population >= 0 && population <= 10000000) {
+                                    return legendColors[1]
+                                } else if (population >=  10000000 && population <= 50000000) {
+                                    return legendColors[2]
+                                } else if (population >=  50000000 && population <= 100000000) {
+                                    return legendColors[3]
+                                } 
+                            }
+                        }
+                        else {
+                            return defaultColor
+                        }
+                    })
+                    .on('click', d => {
+                        //disable click when dragging over map
+                        if (d3.event.defaultPrevented) return;
+                        if (countryByCode[d.id] == null) {
+                            alert("No information for this country");
+                            return;
+                        } else {
+                            const data = {
+                                name: countryByCode[d.id].name,
+                                deathsByYears : [countryByCode[d.id].year_2000, countryByCode[d.id].year_2001, countryByCode[d.id].year_2002, countryByCode[d.id].year_2003, countryByCode[d.id].year_2004, countryByCode[d.id].year_2005, countryByCode[d.id].year_2006, countryByCode[d.id].year_2007, countryByCode[d.id].year_2008, countryByCode[d.id].year_2009, countryByCode[d.id].year_2010, countryByCode[d.id].year_2011, countryByCode[d.id].year_2012, countryByCode[d.id].year_2013, countryByCode[d.id].year_2014, countryByCode[d.id].year_2015, countryByCode[d.id].year_2016, countryByCode[d.id].year_2017],
+                            }
+                            displayGraphs(data);
+                        }
+                    })
+                    .append('title')
+                    .text(d => {
+                        if (countryByCode[d.id] != null) {
+                            const data = {
+                                name: countryByCode[d.id].name,
+                                continent: countryByCode[d.id].continent,
+                                region: countryByCode[d.id].region,
+                                average: countryByCode[d.id].average,
+                                population: countryByCode[d.id].population,
+                            }
+                            const deathsAverageFormatted = formatBigNumber(parseInt(data.average));
+                            const populationFormatted = formatBigNumber(parseInt(data.population));
+
+                            return data.name + "\nContinent: " + data.continent + "\nRegion: " + data.region + "\nAverage: " + deathsAverageFormatted + " deaths" + "\nPopulation: " + data.population;
+                        } else {
+                            return "Unidentified";
+                        }
+                    }) 
+        }
+
+        //Function for formatting big numbers
+        function formatBigNumber(x) {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        }
+
+        //Function to initialize country select menu
+        function initCountrySelectMenu(world, countryByName, countryByCode) {
+            const dropDown = d3.select("#selectCountry");
+                dropDown.selectAll(null)
+                    .data(countryByName)
+                    .enter()
+                    .append("option")
+                    .attr("value", function (d) { return d; })
+                    .text(function (d) { return d; });
+
+                dropDown.on('change', function () {
+                    const select = document.getElementById('selectCountry');
+                    const name = select.options[select.selectedIndex].value;
+                    let selectedCountry;
+                    world.forEach(item => {
+                       if (item.properties.name === name) {
+                        selectedCountry = countryByCode[item.id];
+                       }
+                    });
+
+                    if (selectedCountry == null) {
+                        alert("No information for this country");
+                        return;
+                    } else {
+                        const data = {
+                            name: name,
+                            deathsByYears : [selectedCountry.year_2000, selectedCountry.year_2001, selectedCountry.year_2002, selectedCountry.year_2003, selectedCountry.year_2004, selectedCountry.year_2005, selectedCountry.year_2006, selectedCountry.year_2007, selectedCountry.year_2008, selectedCountry.year_2009, selectedCountry.year_2010, selectedCountry.year_2011, selectedCountry.year_2012, selectedCountry.year_2013, selectedCountry.year_2014, selectedCountry.year_2015, selectedCountry.year_2016, selectedCountry.year_2017],
+                        }
+                        displayGraphs(data);
+                    }
+                })
+        }
+
+        //Function to initialize map legend
+        function initMapLegend() {
+            const selectedMapData = d3.select('input[name="selectMapData"]:checked').node().value;
+            if (selectedMapData == "death_rates") {
+                legendValues = ["Unidentified", "[0, 100]", "[100, 200]", "[200, 300]"];
+            } else if (selectedMapData == "population") {
+                legendValues = ["Unidentified", "[0, 10 000 000]", "[100 000 000, 500 000 000]", "[500 000 000, 1 000 000 000]"];
+            }
+            for (let i = 0; i < legendColors.length; i++) {
+                mapLegend.append('text')
+                    .attr("data-legend", d => legendValues[i])
+                    .attr("data-legend-color", d => legendColors[i])
+            }
+
+            legend = svg.append("g")
+                .attr("class","legend")
+                .attr("transform","translate(50,30)")
+                .style("font-size","12px")
+                .call(d3.legend)
+
+            setTimeout(function() { 
+                legend
+                .style("font-size","20px")
+                .attr("data-style-padding",10)
+                .call(d3.legend)
+            },1000)
+            
+        }
+
+        //Function to display graph
+        const graphSvg = d3.select("#lineGraph").append("svg")
+            .attr("width", width)
+            .attr("height", height * 0.75);
+        let graphGroup = graphSvg.append('g');
+
+        const barChartSvg = d3.select("#barChart").append("svg")
+            .attr("width", width)
+            .attr("height", height * 0.75);
+        let graphMade = false;
+
+        function displayGraphs(data) {
+            const xDataLinechart = ["2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017"];
+
+            for (var i = 0; i < data.deathsByYears.length; i ++) {
+                data.deathsByYears[i] = parseInt(data.deathsByYears[i]);
+            }
+
+            const yDataLinechart = data.deathsByYears;
+
+            const title = data.name + " cancer death rates from " + xDataLinechart[0] + " to " + xDataLinechart[xDataLinechart.length - 1];
+            const xAxisLinechartTitle = "Time [years]";
+            const yAxisLinechartTitle = "Under 5 age - cancer deaths";
+
+            if (graphMade) {
+                graphGroup.remove();
+                lineChart.remove();
+                graphSvg.selectAll(".bar").remove();
+                graphSvg.selectAll(".removeable").remove();
+                barChartSvg.selectAll(".bar").remove();
+                barChartSvg.selectAll(".removeable").remove();
+                graphGroup = graphSvg.append('g');
+            }
+
+            //document.getElementById('lineGraph').scrollIntoView();
+
+            const margin = { top: 10, bottom: 70, left: 0, right: 20 };
+            const width = 450 - margin.left - margin.right;
+            const height = 350 - margin.top - margin.bottom;
+
+            const max = Math.max(...yDataLinechart);
+            const min = Math.min(...yDataLinechart);
+            const sum = parseInt(yDataLinechart.reduce((a, b) => a + b), 10);
+            const avg = parseInt(Math.ceil(sum / yDataLinechart.length));
+
+            //1040, 1440
+            const lineChartScale = d3.scale.linear()
+                .domain([height + 30, width + 140])
+                .range([max, min]);
+
+            const x = d3.scale.ordinal()
+                .domain(d3.range(xDataLinechart.length))
+                .rangePoints([0, width]);
+
+            const y = d3.scale.linear()
+                .domain([min, max])
+                .range([height, 0]);
+
+            const xAxisLinechart = d3.svg.axis()
+                .scale(x)
+                .orient("bottom")
+                .innerTickSize(-height)
+                .outerTickSize(5)
+                .tickPadding(10)
+                .tickFormat(function (d, i) { return xDataLinechart[i]; });
+
+            const yAxisLinechart = d3.svg.axis()
+                .scale(y)
+                .orient("left")
+                .innerTickSize(-width)
+                .outerTickSize(5)
+                .tickPadding(10);
+
+            graphGroup.append("g")
+                .attr("class", "blackColor x axis")
+                .attr("transform", "translate(" + 0.2 * width + "," + height * 1.143 + ")")
+                .transition().duration(1500)
+                .call(xAxisLinechart);
+
+            graphGroup.select(".x.axis")
+                .append("text")
+                .attr("x", (width / 2))
+                .attr("y", 50)
+                .attr("dy", ".100em")
+                .attr("font-weight", "bold")
+                .attr("font-family", "Open Sans")
+                .attr("font-size", "15px")
+                .style("text-anchor", "middle")
+                .text(xAxisLinechartTitle);
+
+            graphGroup.append("g")
+                .attr("class", "blackColor y axis")
+                .attr("transform", "translate(" + 0.2 * width + "," + height / 9 + ")")
+                .transition().duration(2000)
+                .attr("transform", "translate(" + 0.2 * width + "," + height / 7 + ")")
+                .call(yAxisLinechart);
+
+            graphGroup.select(".y.axis")
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", - (0.85 * width / 2) + 50)
+                .attr("y", -60)
+                .attr("dy", ".50em")
+                .attr("font-weight", "bold")
+                .attr("font-family", "Open Sans")
+                .attr("font-size", "15px")
+                .style("text-anchor", "middle")
+                .text(yAxisLinechartTitle);
+
+            const valueline = d3.svg.line()
+                .interpolate("monotone")
+                .x(function (d, i) { return x(i); })
+                .y(function (d) { return y(d); });
+
+            let lineChartValue = "";
+
+            //============= Line chart text label on mouseover ============
+            const lineChartLabel = graphSvg.append("text")
+                .attr("y", 27)
+                .attr("transform", "translate(" + 1.15* width + "," + height / 7 + ")")
+                .attr("text-anchor", "middle")
+                .attr("font-weight", "bold")
+                .attr("font-family", "Open Sans")
+                .attr("opacity", "0")
+                .style("fill", "red")
+                .style("font-size", "1.5em")
+                .text(lineChartValue);
+
+            //============= Line chart ============
+            lineChart = graphGroup.append("path")
+                .attr("transform", "translate(" + 0.2 * width + "," + height / 7 + ")")
+                .attr("d", valueline(yDataLinechart))
+                .attr("fill", "none")
+                .style("stroke", "red")
+                .style("stroke-width", "5px")
+                .on('mouseover', function () { lineChartLabel.attr("opacity", "1"); })
+                .on('mouseout', function () { lineChartLabel.attr("opacity", "0"); })
+                .on('mousemove', function () {
+                    lineChartValue = Math.floor(lineChartScale(d3.event.pageY)).toString();
+                    lineChartLabel.text(lineChartValue);
+                });
+
+            const pathLength = lineChart.node().getTotalLength();
+
+            lineChart
+                .attr("stroke-dashoffset", pathLength)
+                .attr("stroke-dasharray", pathLength)
+                .transition()
+                .delay(100)
+                .duration(2000)
+                .attr("stroke-dashoffset", 0);
+
+            graphGroup.append("text")
+                .attr("y", -25)
+                .attr("transform", "translate(" + 0.2 * width + "," + height / 7 + ")")
+                .attr("font-family", "Open Sans")
+                .style("fill", "black")
+                .style("font-size", "1.1em")
+                .text(title);
+
+            const yDataBarchart = [min, avg, max];
+            const xDataBarchart = ["Min", "Avg", "Max"];
+
+            const widthBarchart = 200 - margin.left - margin.right;
+            const heightBarchart = 350 - margin.top - margin.bottom;
+            const barPadding = 4;
+            const barWidth = (width / yDataBarchart.length - barPadding) / 5;
+
+            reporter("H" + height + "W" + width);
+            const minYValue = height + 402; //1735
+            const maxYValue = width + 509; //2145
+
+            const barChartScale = d3.scale.linear()
+                .domain([minYValue, maxYValue])
+                .range([max, 0]);
+
+            const xBarchart = d3.scale.ordinal()
+                .domain(d3.range(yDataBarchart.length))
+                .rangeRoundBands([0, widthBarchart]);
+
+            const yBarchart = d3.scale.linear()
+                .domain([0, d3.max(yDataBarchart)])
+                .range([heightBarchart, 0]);
+
+            const xAxisBarchart = d3.svg.axis()
+                .scale(xBarchart)
+                .orient("bottom")
+                .tickFormat((d, i) => xDataBarchart[i]);
+
+            const yAxisBarchart = d3.svg.axis()
+                .scale(yBarchart)
+                .orient("left")
+                .ticks(10);
+
+            barChartSvg.append("g")
+                .attr("class", "blackColor removeable y axis")
+                .attr("transform", "translate(240," + height * 0.1 + ")")
+                .transition().duration(2000)
+                .attr("transform", "translate(240," + height / 7 + ")")
+                .call(yAxisBarchart);
+
+            barChartSvg.select(".y.axis")
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", - (0.80 * width / 2) + 50)
+                .attr("y", -50)
+                .attr("dy", ".50em")
+                .attr("font-weight", "bold")
+                .attr("font-family", "Open Sans")
+                .attr("font-size", "15px")
+                .style("text-anchor", "middle")
+                .text(yAxisLinechartTitle);
+
+            barChartSvg.append("g")
+                .attr("class", "blackColor removeable x axis")
+                .attr("transform", "translate(240," + height * 0.1 + ")")
+                .transition().duration(2000)
+                .attr("transform", "translate(240," + height * 1.143 + ")")
+                .call(xAxisBarchart)
+                .selectAll("text")
+                .style("text-anchor", "middle")
+                .attr("font-family", "Open Sans");
+
+            //============= Bar chart text label on mouseover ============
+            let barChartValue = "";
+            const barChartTextLabel = barChartSvg.append("text")
+                .attr("y", -15)
+                .attr("transform", "translate(" + 0.75* width + "," + height / 7 + ")")
+                .attr("text-anchor", "middle")
+                .attr("font-family", "Open Sans")
+                .attr("font-weight", "bold")
+                .attr("opacity", "0")
+                .style("fill", "red")
+                .style("font-size", "1.3em")
+                .text(barChartValue);
+
+            //============= Bar chart ============
+            const barChartColors = ["red", "red", "red"];
+            const barchart = barChartSvg.selectAll("rect")
+                .data(yDataBarchart)
+                .enter()
+                .append("rect")
+                .attr("class", "bar removeable")
+                .attr("transform", "translate(258," + height / 7 + ")")
+                .attr("x", function (d, i) { return xBarchart(i); })
+                .attr("width", barWidth)
+                .attr("height", function () { return heightBarchart - yBarchart(0); })
+                .attr("fill", function (d, i) { return barChartColors[i]; })
+                .on("mouseover", function () { barChartTextLabel.attr("opacity", "1"); })
+                .on("mouseout", function () { barChartTextLabel.attr("opacity", "0"); })
+                .on("mousemove", function () {
+                    barChartValue = Math.floor(barChartScale(d3.event.pageY)).toString();
+                    barChartTextLabel.text(barChartValue);
+                })
+
+                barChartSvg.selectAll(".bar")
+                .transition()
+                .delay(100)
+                .duration(2000)
+                .attr("y", function (d) { return yBarchart(d); })
+                .attr("height", function (d) { return heightBarchart - yBarchart(d); });
+
+            graphMade = true;
+
+        }
+
+        new WOW().init();
+
+    </script>
+    
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+    <!-- Reveal Animations When Scrolling -->
+    <script type="text/javascript" src="js/wow.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+@import url(http://fonts.googleapis.com/css?family=Open+Sans:400,300,700,800);
+
+body {
+    background-color: white;
+    font-family: 'Open Sans';
+}
+
+.sphere {
+    fill: #006994;
+}
+
+#mapContainer {
+    display: block;
+    margin: auto;
+    width: 100%;
+    margin-top: 5%;
+}
+
+#mapSvg {
+    border-color: grey;
+    border-width: medium;
+    border-style: dashed;
+}
+
+#lineGraph {
+    padding-top: 20px;
+}
+
+svg {
+    display: block;
+    margin: auto;
+    width: 100%;
+    justify-content: center;
+}
+
+.country {
+    stroke: lightgrey;
+    stroke-width: 0.3px;
+}
+
+.country:hover {
+    fill: red;
+}
+
+.axis {
+    font: 10px open-sans;
+}
+
+.axis path,
+.axis line{
+    fill: none;
+    stroke: black;
+    stroke-width: 2px;
+}
+
+.line{
+    fill: none;
+    stroke: black;
+    stroke-width: 1px;
+    shape-rendering: crispEdges
+}
+
+.tick text{
+    font-size: 12px;
+}
+
+.tick line{
+    opacity: 0.5;
+}
+
+.blackColor {
+    fill: black;
+    color: black;
+}
+
+.full{
+    width: 50%;
+    color: lightgray;
+}
+
+#selectCountry {
+    margin-bottom: 20px;
+}
+
+.legend rect {
+    fill:white;
+    stroke:black;
+    opacity:0.8;}
+
+#test {
+    margin-top: -25%;
+}
+
